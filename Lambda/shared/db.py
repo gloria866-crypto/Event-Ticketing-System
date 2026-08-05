@@ -1,10 +1,15 @@
+import os
+import logging
 import boto3
 from boto3.dynamodb.conditions import Key
 
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
 dynamodb = boto3.resource("dynamodb")
 
-_events = dynamodb.Table("Events")
-_registrations = dynamodb.Table("Registrations")
+_events = dynamodb.Table(os.environ.get("EVENTS_TABLE", "Events"))
+_registrations = dynamodb.Table(os.environ.get("REGISTRATIONS_TABLE", "Registrations"))
 
 
 def get_event(event_id):
@@ -19,7 +24,8 @@ def decrement_spots(event_id):
     _events.update_item(
         Key={"eventId": event_id},
         UpdateExpression="SET availableSpots = availableSpots - :dec",
-        ExpressionAttributeValues={":dec": 1}
+        ConditionExpression="availableSpots > :zero",
+        ExpressionAttributeValues={":dec": 1, ":zero": 0}
     )
 
 
@@ -46,10 +52,5 @@ def get_registrations_by_email(email):
     ).get("Items", [])
 
 
-def cancel_registration(registration_id):
-    _registrations.update_item(
-        Key={"registrationId": registration_id},
-        UpdateExpression="SET #s = :cancelled",
-        ExpressionAttributeNames={"#s": "status"},
-        ExpressionAttributeValues={":cancelled": "cancelled"}
-    )
+def delete_registration(registration_id):
+    _registrations.delete_item(Key={"registrationId": registration_id})
