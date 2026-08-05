@@ -1,23 +1,47 @@
 import json
+import logging
 import sys
 import os
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "shared"))
-from db import get_registration, cancel_registration, increment_spots
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "shared"))
+
+from db import get_registration, delete_registration, increment_spots
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+CORS_HEADERS = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Methods": "DELETE,OPTIONS"
+}
 
 
 def lambda_handler(event, context):
-    registration_id = event.get("pathParameters", {}).get("id")
-    if not registration_id:
-        return {"statusCode": 400, "body": json.dumps({"message": "id is required"})}
+    try:
+        registration_id = event.get("pathParameters", {}).get("id")
+        if not registration_id:
+            return {"statusCode": 400, "headers": CORS_HEADERS, "body": json.dumps({"message": "id is required"})}
 
-    item = get_registration(registration_id)
-    if not item:
-        return {"statusCode": 404, "body": json.dumps({"message": "Registration not found"})}
-    if item.get("status") == "cancelled":
-        return {"statusCode": 409, "body": json.dumps({"message": "Already cancelled"})}
+        logger.info("DELETE /registration/%s", registration_id)
+        item = get_registration(registration_id)
+        if not item:
+            return {"statusCode": 404, "headers": CORS_HEADERS, "body": json.dumps({"message": "Registration not found"})}
 
-    cancel_registration(registration_id)
-    increment_spots(item["eventId"])
+        delete_registration(registration_id)
+        increment_spots(item["eventId"])
 
-    return {"statusCode": 200, "body": json.dumps({"message": "Registration cancelled"})}
+        logger.info("Registration deleted: %s", registration_id)
+        return {
+            "statusCode": 200,
+            "headers": CORS_HEADERS,
+            "body": json.dumps({"message": "Registration cancelled successfully"})
+        }
+    except Exception as e:
+        logger.error("Error cancelling registration: %s", str(e))
+        return {
+            "statusCode": 500,
+            "headers": CORS_HEADERS,
+            "body": json.dumps({"message": "Internal server error"})
+        }

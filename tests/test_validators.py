@@ -21,6 +21,10 @@ def test_validate_register_body_missing_name():
     assert validate_register_body({"email": "john@example.com", "eventId": "evt-001"}) == "name is required"
 
 
+def test_validate_register_body_short_name():
+    assert validate_register_body({"name": "J", "email": "john@example.com", "eventId": "evt-001"}) == "name must be at least 2 characters"
+
+
 def test_validate_register_body_missing_email():
     assert validate_register_body({"name": "John", "eventId": "evt-001"}) == "email is required"
 

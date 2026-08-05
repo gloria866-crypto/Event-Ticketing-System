@@ -11,6 +11,8 @@ def is_valid_email(email: str) -> bool:
 def validate_register_body(body: dict) -> Optional[str]:
     if not body.get("name"):
         return "name is required"
+    if len(body["name"].strip()) < 2:
+        return "name must be at least 2 characters"
     if not body.get("email"):
         return "email is required"
     if not is_valid_email(body["email"]):
