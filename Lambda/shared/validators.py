@@ -1,4 +1,5 @@
 import re
+from typing import Optional
 
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
@@ -7,7 +8,7 @@ def is_valid_email(email: str) -> bool:
     return bool(EMAIL_RE.match(email))
 
 
-def validate_register_body(body: dict) -> str | None:
+def validate_register_body(body: dict) -> Optional[str]:
     if not body.get("name"):
         return "name is required"
     if not body.get("email"):
