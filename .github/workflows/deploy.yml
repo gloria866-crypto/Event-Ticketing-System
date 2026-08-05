@@ -37,8 +37,16 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
-      - name: Terraform Init & Apply
+      - name: Terraform Init
+        working-directory: Infrastructure
+        run: terraform init
+
+      - name: Terraform Import Existing Tables
         working-directory: Infrastructure
         run: |
-          terraform init
-          terraform apply -auto-approve
+          terraform import aws_dynamodb_table.events Events || true
+          terraform import aws_dynamodb_table.registrations Registrations || true
+
+      - name: Terraform Apply
+        working-directory: Infrastructure
+        run: terraform apply -auto-approve
