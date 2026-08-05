@@ -13,9 +13,9 @@ provider "aws" {
 
 # DynamoDB Tables
 resource "aws_dynamodb_table" "events" {
-  name           = "Events"
-  billing_mode   = "PAY_PER_REQUEST"
-  hash_key       = "eventId"
+  name         = "Events"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "eventId"
 
   attribute {
     name = "eventId"
@@ -28,9 +28,9 @@ resource "aws_dynamodb_table" "events" {
 }
 
 resource "aws_dynamodb_table" "registrations" {
-  name           = "Registrations"
-  billing_mode   = "PAY_PER_REQUEST"
-  hash_key       = "registrationId"
+  name         = "Registrations"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "registrationId"
 
   attribute {
     name = "registrationId"
