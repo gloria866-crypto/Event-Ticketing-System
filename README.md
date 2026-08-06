@@ -33,6 +33,10 @@ Client → API Gateway (HTTP API) → Lambda Functions → DynamoDB
 
 ```
 Event-Ticketing-System/
+├── frontend/
+│   ├── index.html             # Attendee-facing web interface
+│   ├── styles.css             # Responsive frontend styling
+│   └── app.js                 # API integration and ticket management
 ├── .github/
 │   └── workflows/
 │       └── deploy.yml          # CI/CD pipeline
@@ -85,13 +89,13 @@ Response `200`:
 [
   {
     "eventId": "evt-001",
-    "name": "AWS re:Invent 2025",
-    "description": "Annual AWS cloud computing conference",
-    "date": "2025-12-01",
-    "location": "Las Vegas, NV",
+    "name": "Tech Innovation Summit 2026",
+    "description": "A full-day event for builders, founders, and cloud enthusiasts.",
+    "date": "2026-06-12",
+    "location": "Accra, Ghana",
     "capacity": 500,
     "availableSpots": 498,
-    "category": "Cloud",
+    "category": "Technology",
     "price": "0.00"
   }
 ]
@@ -234,6 +238,24 @@ The script creates the encrypted S3 state bucket and DynamoDB lock table, then m
 ---
 
 ## Local Setup
+
+### Run the frontend
+
+Open `frontend/index.html` in a browser, select **API settings**, and paste the API Gateway URL shown by:
+
+```bash
+terraform -chdir=Infrastructure output api_url
+```
+
+The frontend uses the existing API endpoints to list events, register attendees, look up registrations, and cancel registrations.
+
+### Public frontend URL
+
+Terraform deploys the frontend to a private S3 bucket served through CloudFront and automatically connects it to the API Gateway URL. After `terraform apply`, get the public URL with:
+
+```bash
+terraform -chdir=Infrastructure output -raw frontend_url
+```
 
 ### Prerequisites
 

@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Register for events and manage your tickets." />
+    <title>EventGlova | Find your next event</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="#top" aria-label="EventGlova home"><span>e</span>ventglova</a>
+      <nav aria-label="Main navigation">
+        <a href="#events">Events</a>
+        <a href="#register">Register</a>
+        <a href="#manage">My tickets</a>
+      </nav>
+      <button class="text-button" id="settings-button" type="button">API settings</button>
+    </header>
+
+    <main id="top">
+      <section class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">THE 2026 COLLECTION</p>
+          <h1>Make time for<br /><em>what matters.</em></h1>
+          <p class="hero-text">A simple way to discover, reserve, and manage the events that bring your people together.</p>
+          <a class="button button-primary" href="#events">Explore events <span aria-hidden="true">→</span></a>
+        </div>
+        <div class="hero-art" aria-hidden="true">
+          <div class="orb orb-one"></div>
+          <div class="orb orb-two"></div>
+          <div class="event-preview">
+            <span class="preview-dot"></span>
+            <p>UP NEXT</p>
+            <strong>Tech Innovation<br />Summit</strong>
+            <span>JUN 12 · ACCRA</span>
+          </div>
+          <div class="year-mark">2026</div>
+        </div>
+      </section>
+
+      <section class="section events-section" id="events">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">WHAT'S ON</p>
+            <h2>Find your next moment.</h2>
+          </div>
+          <button class="text-button with-icon" id="refresh-events" type="button">Refresh <span aria-hidden="true">↻</span></button>
+        </div>
+        <p class="connection-message" id="events-message" aria-live="polite">Connect your API to load available events.</p>
+        <div class="events-grid" id="events-list" aria-live="polite"></div>
+      </section>
+
+      <section class="registration-section" id="register">
+        <div class="registration-intro">
+          <p class="eyebrow">SAVE YOUR SEAT</p>
+          <h2>Ready when<br />you are.</h2>
+          <p>Choose an event, tell us who you are, and we will save your place.</p>
+        </div>
+        <form class="registration-form" id="registration-form">
+          <label>
+            Full name
+            <input id="name" name="name" type="text" minlength="2" placeholder="e.g. Ama Mensah" required />
+          </label>
+          <label>
+            Email address
+            <input id="email" name="email" type="email" placeholder="you@example.com" required />
+          </label>
+          <label>
+            Choose an event
+            <select id="event-id" name="eventId" required disabled>
+              <option value="">Load events to choose one</option>
+            </select>
+          </label>
+          <button class="button button-light" id="register-button" type="submit" disabled>Reserve my place <span aria-hidden="true">→</span></button>
+          <p class="form-message" id="registration-message" aria-live="polite"></p>
+        </form>
+      </section>
+
+      <section class="section manage-section" id="manage">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">YOUR PLANS</p>
+            <h2>Manage your tickets.</h2>
+          </div>
+        </div>
+        <form class="lookup-form" id="lookup-form">
+          <label class="sr-only" for="lookup-email">Email address</label>
+          <input id="lookup-email" type="email" placeholder="Enter your email address" required />
+          <button class="button button-dark" type="submit">Find my tickets</button>
+        </form>
+        <p class="connection-message" id="registrations-message" aria-live="polite"></p>
+        <div class="registrations-list" id="registrations-list" aria-live="polite"></div>
+      </section>
+    </main>
+
+    <footer>
+      <a class="brand" href="#top"><span>e</span>ventglova</a>
+      <p>Built for memorable moments.</p>
+    </footer>
+
+    <dialog id="settings-dialog">
+      <form method="dialog" class="settings-card" id="settings-form">
+        <button class="close-button" value="cancel" aria-label="Close settings" type="submit">×</button>
+        <p class="eyebrow">CONNECTION</p>
+        <h2>Connect your API</h2>
+        <p>Paste the API Gateway base URL from <code>terraform output api_url</code>.</p>
+        <label>
+          API base URL
+          <input id="api-url" type="url" placeholder="https://abc123.execute-api.us-east-1.amazonaws.com" required />
+        </label>
+        <button class="button button-dark" type="submit" value="save">Save and load events</button>
+      </form>
+    </dialog>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="config.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

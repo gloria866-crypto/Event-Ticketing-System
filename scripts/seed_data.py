@@ -6,35 +6,35 @@ events_table = dynamodb.Table("Events")
 EVENTS = [
     {
         "eventId": "evt-001",
-        "name": "AWS re:Invent 2025",
-        "description": "Annual AWS cloud computing conference",
-        "date": "2025-12-01",
-        "location": "Las Vegas, NV",
+        "name": "Tech Innovation Summit 2026",
+        "description": "A full-day event for builders, founders, and cloud enthusiasts.",
+        "date": "2026-06-12",
+        "location": "Accra, Ghana",
         "capacity": 500,
         "availableSpots": 500,
-        "category": "Cloud",
+        "category": "Technology",
         "price": "0.00"
     },
     {
         "eventId": "evt-002",
-        "name": "PyCon 2025",
-        "description": "Python programming language conference",
-        "date": "2025-05-15",
-        "location": "Pittsburgh, PA",
+        "name": "Python Community Day 2026",
+        "description": "Hands-on talks and community sessions for Python developers.",
+        "date": "2026-08-20",
+        "location": "Kumasi, Ghana",
         "capacity": 300,
         "availableSpots": 300,
-        "category": "Programming",
+        "category": "Development",
         "price": "0.00"
     },
     {
         "eventId": "evt-003",
-        "name": "KubeCon 2025",
-        "description": "Kubernetes and cloud native computing conference",
-        "date": "2025-11-10",
-        "location": "Atlanta, GA",
+        "name": "Cloud Native Forum 2026",
+        "description": "Practical cloud, DevOps, and platform engineering conversations.",
+        "date": "2026-10-16",
+        "location": "Takoradi, Ghana",
         "capacity": 400,
         "availableSpots": 400,
-        "category": "DevOps",
+        "category": "Cloud",
         "price": "0.00"
     },
 ]
@@ -42,8 +42,23 @@ EVENTS = [
 
 def seed():
     for event in EVENTS:
-        events_table.put_item(Item=event)
-        print(f"Seeded: {event['name']}")
+        events_table.update_item(
+            Key={"eventId": event["eventId"]},
+            UpdateExpression=(
+                "SET #name = :name, description = :description, #date = :date, "
+                "#location = :location, #capacity = :capacity, "
+                "availableSpots = if_not_exists(availableSpots, :availableSpots), "
+                "category = :category, price = :price"
+            ),
+            ExpressionAttributeNames={
+                "#name": "name",
+                "#date": "date",
+                "#location": "location",
+                "#capacity": "capacity",
+            },
+            ExpressionAttributeValues={f":{key}": value for key, value in event.items() if key != "eventId"},
+        )
+        print(f"Updated: {event['name']}")
 
 
 if __name__ == "__main__":

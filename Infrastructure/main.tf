@@ -167,7 +167,7 @@ resource "aws_lambda_function" "events" {
   function_name    = "events-handler"
   role             = aws_iam_role.lambda_exec.arn
   handler          = "events/handler.lambda_handler"
-  runtime          = "python3.9"
+  runtime          = "python3.13"
   filename         = data.archive_file.events_zip.output_path
   source_code_hash = data.archive_file.events_zip.output_base64sha256
   timeout          = 30
@@ -179,7 +179,7 @@ resource "aws_lambda_function" "register" {
   function_name    = "register-handler"
   role             = aws_iam_role.lambda_exec.arn
   handler          = "register/handler.lambda_handler"
-  runtime          = "python3.9"
+  runtime          = "python3.13"
   filename         = data.archive_file.register_zip.output_path
   source_code_hash = data.archive_file.register_zip.output_base64sha256
   timeout          = 30
@@ -191,7 +191,7 @@ resource "aws_lambda_function" "registrations" {
   function_name    = "registrations-handler"
   role             = aws_iam_role.lambda_exec.arn
   handler          = "registrations/handler.lambda_handler"
-  runtime          = "python3.9"
+  runtime          = "python3.13"
   filename         = data.archive_file.registrations_zip.output_path
   source_code_hash = data.archive_file.registrations_zip.output_base64sha256
   timeout          = 30
@@ -203,7 +203,7 @@ resource "aws_lambda_function" "cancel" {
   function_name    = "cancel-handler"
   role             = aws_iam_role.lambda_exec.arn
   handler          = "cancel/handler.lambda_handler"
-  runtime          = "python3.9"
+  runtime          = "python3.13"
   filename         = data.archive_file.cancel_zip.output_path
   source_code_hash = data.archive_file.cancel_zip.output_base64sha256
   timeout          = 30
@@ -227,6 +227,11 @@ resource "aws_apigatewayv2_stage" "default" {
   api_id      = aws_apigatewayv2_api.api.id
   name        = "$default"
   auto_deploy = true
+
+  default_route_settings {
+    throttling_burst_limit = 50
+    throttling_rate_limit  = 100
+  }
 }
 
 resource "aws_apigatewayv2_integration" "events" {
@@ -434,6 +439,96 @@ resource "aws_cloudwatch_metric_alarm" "api_4xx_errors" {
   }
 }
 
+# ─── CloudWatch Dashboard ────────────────────────────────────────────────────
+
+resource "aws_cloudwatch_dashboard" "main" {
+  dashboard_name = "EventTicketing"
+
+  dashboard_body = jsonencode({
+    widgets = [
+      {
+        type   = "metric"
+        x      = 0
+        y      = 0
+        width  = 12
+        height = 6
+        properties = {
+          title   = "Lambda Invocations"
+          view    = "timeSeries"
+          region  = var.aws_region
+          period  = 60
+          stat    = "Sum"
+          metrics = [
+            ["AWS/Lambda", "Invocations", "FunctionName", aws_lambda_function.events.function_name],
+            ["AWS/Lambda", "Invocations", "FunctionName", aws_lambda_function.register.function_name],
+            ["AWS/Lambda", "Invocations", "FunctionName", aws_lambda_function.registrations.function_name],
+            ["AWS/Lambda", "Invocations", "FunctionName", aws_lambda_function.cancel.function_name]
+          ]
+        }
+      },
+      {
+        type   = "metric"
+        x      = 12
+        y      = 0
+        width  = 12
+        height = 6
+        properties = {
+          title   = "Lambda Errors"
+          view    = "timeSeries"
+          region  = var.aws_region
+          period  = 60
+          stat    = "Sum"
+          metrics = [
+            ["AWS/Lambda", "Errors", "FunctionName", aws_lambda_function.events.function_name],
+            ["AWS/Lambda", "Errors", "FunctionName", aws_lambda_function.register.function_name],
+            ["AWS/Lambda", "Errors", "FunctionName", aws_lambda_function.registrations.function_name],
+            ["AWS/Lambda", "Errors", "FunctionName", aws_lambda_function.cancel.function_name]
+          ]
+        }
+      },
+      {
+        type   = "metric"
+        x      = 0
+        y      = 6
+        width  = 12
+        height = 6
+        properties = {
+          title   = "Lambda Duration (p99)"
+          view    = "timeSeries"
+          region  = var.aws_region
+          period  = 60
+          stat    = "p99"
+          metrics = [
+            ["AWS/Lambda", "Duration", "FunctionName", aws_lambda_function.events.function_name],
+            ["AWS/Lambda", "Duration", "FunctionName", aws_lambda_function.register.function_name],
+            ["AWS/Lambda", "Duration", "FunctionName", aws_lambda_function.registrations.function_name],
+            ["AWS/Lambda", "Duration", "FunctionName", aws_lambda_function.cancel.function_name]
+          ]
+        }
+      },
+      {
+        type   = "metric"
+        x      = 12
+        y      = 6
+        width  = 12
+        height = 6
+        properties = {
+          title   = "API Gateway — Requests, 4xx & 5xx"
+          view    = "timeSeries"
+          region  = var.aws_region
+          period  = 60
+          stat    = "Sum"
+          metrics = [
+            ["AWS/ApiGateway", "Count",    "ApiId", aws_apigatewayv2_api.api.id],
+            ["AWS/ApiGateway", "4XXError", "ApiId", aws_apigatewayv2_api.api.id],
+            ["AWS/ApiGateway", "5XXError", "ApiId", aws_apigatewayv2_api.api.id]
+          ]
+        }
+      }
+    ]
+  })
+}
+
 # ─── Outputs ─────────────────────────────────────────────────────────────────
 
 output "sns_topic_arn" {
@@ -451,4 +546,141 @@ output "dynamodb_tables" {
     events        = aws_dynamodb_table.events.name
     registrations = aws_dynamodb_table.registrations.name
   }
+}
+
+# ─── Static frontend hosting ────────────────────────────────────────────────
+
+resource "aws_s3_bucket" "frontend" {
+  bucket = "event-ticketing-frontend-812616070438"
+
+  tags = { Project = "EventTicketing" }
+}
+
+resource "aws_s3_bucket_public_access_block" "frontend" {
+  bucket                  = aws_s3_bucket.frontend.id
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+resource "aws_s3_bucket_ownership_controls" "frontend" {
+  bucket = aws_s3_bucket.frontend.id
+
+  rule {
+    object_ownership = "BucketOwnerEnforced"
+  }
+}
+
+resource "aws_cloudfront_origin_access_control" "frontend" {
+  name                              = "event-ticketing-frontend-oac"
+  description                       = "CloudFront access to the Event Ticketing frontend bucket"
+  origin_access_control_origin_type = "s3"
+  signing_behavior                  = "always"
+  signing_protocol                  = "sigv4"
+}
+
+resource "aws_cloudfront_distribution" "frontend" {
+  enabled             = true
+  is_ipv6_enabled     = true
+  default_root_object = "index.html"
+  price_class         = "PriceClass_100"
+
+  origin {
+    domain_name              = aws_s3_bucket.frontend.bucket_regional_domain_name
+    origin_id                = "event-ticketing-frontend-s3"
+    origin_access_control_id = aws_cloudfront_origin_access_control.frontend.id
+  }
+
+  default_cache_behavior {
+    allowed_methods  = ["GET", "HEAD", "OPTIONS"]
+    cached_methods   = ["GET", "HEAD"]
+    target_origin_id = "event-ticketing-frontend-s3"
+
+    forwarded_values {
+      query_string = false
+
+      cookies {
+        forward = "none"
+      }
+    }
+
+    viewer_protocol_policy = "redirect-to-https"
+    min_ttl                = 0
+    default_ttl            = 0
+    max_ttl                = 0
+  }
+
+  restrictions {
+    geo_restriction {
+      restriction_type = "none"
+    }
+  }
+
+  viewer_certificate {
+    cloudfront_default_certificate = true
+  }
+
+  tags = { Project = "EventTicketing" }
+}
+
+data "aws_iam_policy_document" "frontend_bucket" {
+  statement {
+    effect = "Allow"
+
+    principals {
+      type        = "Service"
+      identifiers = ["cloudfront.amazonaws.com"]
+    }
+
+    actions   = ["s3:GetObject"]
+    resources = ["${aws_s3_bucket.frontend.arn}/*"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "AWS:SourceArn"
+      values   = [aws_cloudfront_distribution.frontend.arn]
+    }
+  }
+}
+
+resource "aws_s3_bucket_policy" "frontend" {
+  bucket = aws_s3_bucket.frontend.id
+  policy = data.aws_iam_policy_document.frontend_bucket.json
+
+  depends_on = [aws_s3_bucket_public_access_block.frontend]
+}
+
+locals {
+  frontend_content_types = {
+    "css"  = "text/css"
+    "html" = "text/html"
+    "js"   = "application/javascript"
+  }
+}
+
+resource "aws_s3_object" "frontend_files" {
+  for_each = fileset("${path.module}/../frontend", "**")
+
+  bucket       = aws_s3_bucket.frontend.id
+  key          = each.value
+  source       = "${path.module}/../frontend/${each.value}"
+  etag         = filemd5("${path.module}/../frontend/${each.value}")
+  content_type = lookup(local.frontend_content_types, element(reverse(split(".", each.value)), 0), "application/octet-stream")
+
+  depends_on = [aws_s3_bucket_ownership_controls.frontend]
+}
+
+resource "aws_s3_object" "frontend_config" {
+  bucket       = aws_s3_bucket.frontend.id
+  key          = "config.js"
+  content      = "window.EVENTGLOVA_API_URL = ${jsonencode(aws_apigatewayv2_stage.default.invoke_url)};\n"
+  content_type = "application/javascript"
+
+  depends_on = [aws_s3_bucket_ownership_controls.frontend]
+}
+
+output "frontend_url" {
+  description = "Public CloudFront URL for the Event Ticketing frontend"
+  value       = "https://${aws_cloudfront_distribution.frontend.domain_name}"
 }
