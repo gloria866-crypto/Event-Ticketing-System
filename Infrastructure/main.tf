@@ -27,6 +27,19 @@ variable "aws_region" {
   default = "us-east-1"
 }
 
+
+# ─── SNS ─────────────────────────────────────────────────────────────────────
+
+resource "aws_sns_topic" "alarms" {
+  name = "event-ticketing-alarms"
+}
+
+resource "aws_sns_topic_subscription" "alarm_email" {
+  topic_arn = aws_sns_topic.alarms.arn
+  protocol  = "email"
+  endpoint  = "yaaappaih2@gmail.com"
+}
+
 # ─── DynamoDB ────────────────────────────────────────────────────────────────
 
 resource "aws_dynamodb_table" "events" {
@@ -38,6 +51,8 @@ resource "aws_dynamodb_table" "events" {
     name = "eventId"
     type = "S"
   }
+
+  point_in_time_recovery { enabled = true }
 
   tags = { Project = "EventTicketing" }
 }
@@ -62,6 +77,8 @@ resource "aws_dynamodb_table" "registrations" {
     hash_key        = "email"
     projection_type = "ALL"
   }
+
+  point_in_time_recovery { enabled = true }
 
   tags = { Project = "EventTicketing" }
 }
@@ -294,7 +311,8 @@ resource "aws_lambda_permission" "cancel" {
 
 # ─── CloudWatch Alarms ───────────────────────────────────────────────────────
 
-resource "aws_cloudwatch_metric_alarm" "lambda_errors" {
+# Error rate > 5% per Lambda (Errors / Invocations)
+resource "aws_cloudwatch_metric_alarm" "lambda_error_rate" {
   for_each = {
     events        = aws_lambda_function.events.function_name
     register      = aws_lambda_function.register.function_name
@@ -305,17 +323,123 @@ resource "aws_cloudwatch_metric_alarm" "lambda_errors" {
   alarm_name          = "${each.value}-error-rate"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = 1
-  metric_name         = "Errors"
+  threshold           = 5
+  alarm_description   = "Error rate > 5% for ${each.value}"
+  alarm_actions       = [aws_sns_topic.alarms.arn]
+
+  metric_query {
+    id          = "error_rate"
+    expression  = "(errors / MAX([errors, invocations])) * 100"
+    label       = "Error Rate %"
+    return_data = true
+  }
+
+  metric_query {
+    id = "errors"
+    metric {
+      metric_name = "Errors"
+      namespace   = "AWS/Lambda"
+      period      = 60
+      stat        = "Sum"
+      dimensions  = { FunctionName = each.value }
+    }
+  }
+
+  metric_query {
+    id = "invocations"
+    metric {
+      metric_name = "Invocations"
+      namespace   = "AWS/Lambda"
+      period      = 60
+      stat        = "Sum"
+      dimensions  = { FunctionName = each.value }
+    }
+  }
+}
+
+# Lambda duration alarm — p99 > 10 seconds
+resource "aws_cloudwatch_metric_alarm" "lambda_duration" {
+  for_each = {
+    events        = aws_lambda_function.events.function_name
+    register      = aws_lambda_function.register.function_name
+    registrations = aws_lambda_function.registrations.function_name
+    cancel        = aws_lambda_function.cancel.function_name
+  }
+
+  alarm_name          = "${each.value}-duration"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 1
+  metric_name         = "Duration"
   namespace           = "AWS/Lambda"
   period              = 60
-  statistic           = "Sum"
-  threshold           = 5
-  alarm_description   = "Error rate > 5 for ${each.value}"
+  extended_statistic  = "p99"
+  threshold           = 10000
+  alarm_description   = "p99 duration > 10s for ${each.value}"
+  alarm_actions       = [aws_sns_topic.alarms.arn]
 
   dimensions = { FunctionName = each.value }
 }
 
+# API Gateway request count alarm — > 1000 requests/minute
+resource "aws_cloudwatch_metric_alarm" "api_request_count" {
+  alarm_name          = "api-high-request-count"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 1
+  metric_name         = "Count"
+  namespace           = "AWS/ApiGateway"
+  period              = 60
+  statistic           = "Sum"
+  threshold           = 1000
+  alarm_description   = "API requests > 1000/min"
+  alarm_actions       = [aws_sns_topic.alarms.arn]
+
+  dimensions = {
+    ApiId = aws_apigatewayv2_api.api.id
+  }
+}
+
+# API Gateway 5xx errors > 10/minute
+resource "aws_cloudwatch_metric_alarm" "api_5xx_errors" {
+  alarm_name          = "api-5xx-errors"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 1
+  metric_name         = "5XXError"
+  namespace           = "AWS/ApiGateway"
+  period              = 60
+  statistic           = "Sum"
+  threshold           = 10
+  alarm_description   = "API Gateway 5xx errors > 10/min"
+  alarm_actions       = [aws_sns_topic.alarms.arn]
+
+  dimensions = {
+    ApiId = aws_apigatewayv2_api.api.id
+  }
+}
+
+# API Gateway 4xx errors > 50/minute (failed registrations / bad requests)
+resource "aws_cloudwatch_metric_alarm" "api_4xx_errors" {
+  alarm_name          = "api-4xx-errors"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 1
+  metric_name         = "4XXError"
+  namespace           = "AWS/ApiGateway"
+  period              = 60
+  statistic           = "Sum"
+  threshold           = 50
+  alarm_description   = "API Gateway 4xx errors > 50/min"
+  alarm_actions       = [aws_sns_topic.alarms.arn]
+
+  dimensions = {
+    ApiId = aws_apigatewayv2_api.api.id
+  }
+}
+
 # ─── Outputs ─────────────────────────────────────────────────────────────────
+
+output "sns_topic_arn" {
+  description = "SNS topic ARN for alarm notifications"
+  value       = aws_sns_topic.alarms.arn
+}
 
 output "api_url" {
   description = "API Gateway base URL"
