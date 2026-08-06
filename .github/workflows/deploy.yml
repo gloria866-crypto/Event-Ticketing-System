@@ -39,13 +39,7 @@ jobs:
 
       - name: Terraform Init
         working-directory: Infrastructure
-        run: terraform init
-
-      - name: Terraform Import Existing Tables
-        working-directory: Infrastructure
-        run: |
-          terraform import aws_dynamodb_table.events Events || true
-          terraform import aws_dynamodb_table.registrations Registrations || true
+        run: terraform init -input=false
 
       - name: Terraform Apply
         working-directory: Infrastructure

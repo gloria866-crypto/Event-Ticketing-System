@@ -221,6 +221,16 @@ The GitHub Actions workflow runs on every push to `main`:
 | `AWS_ACCESS_KEY_ID` | IAM user access key |
 | `AWS_SECRET_ACCESS_KEY` | IAM user secret key |
 
+### Terraform state setup (required once)
+
+Terraform state is stored remotely to ensure GitHub Actions and local deployments manage the same AWS resources. Before the next deployment, authenticate the AWS CLI and run:
+
+```powershell
+.\Infrastructure\scripts\initialize-remote-state.ps1
+```
+
+The script creates the encrypted S3 state bucket and DynamoDB lock table, then migrates the existing local state. Do not run the deployment workflow until this migration completes successfully.
+
 ---
 
 ## Local Setup
