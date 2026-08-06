@@ -1,19 +1,9 @@
 {
-  "project": "EventTicketing",
-  "region": "us-east-1",
-  "python_runtime": "python3.9",
-  "dynamodb": {
-    "events_table": "Events",
-    "registrations_table": "Registrations",
-    "gsi_name": "EmailIndex"
-  },
-  "lambda": {
-    "timeout": 30,
-    "memory_size": 128
-  },
-  "monitoring": {
-    "error_rate_threshold": 5,
-    "alarm_evaluation_periods": 1,
-    "alarm_period_seconds": 60
+  "Parameters": {
+    "Environment": "dev",
+    "AWSRegion": "us-east-1",
+    "ProjectName": "EventTicketing",
+    "LambdaMemory": 128,
+    "LambdaTimeout": 30
   }
 }
